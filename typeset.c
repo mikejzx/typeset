@@ -29,6 +29,7 @@ static  line *line_add(line_buf*, char*, size_t);
 static  void  add_paragraph(line_buf*, char*, BOOL, size_t);
 #define add_para_ni(b, p) add_paragraph((b), (p), FALSE, strlen(p))
 #define add_para(b, p)    add_paragraph((b), (p), TRUE, strlen(p))
+static  FILE *cmdline(int, char**);
 
 static const int COLUMNS = 80;
 static const int INDENT_WIDTH = 2;
@@ -44,42 +45,62 @@ int main(int argc, char *argv[])
     line_buf *buf = malloc(sizeof(line_buf));
     assert(buf);
 
-    // Constant paragraphs for now
-    // TODO: read input from files and stdin
-    add_para_ni(buf,
-            "In old times when wishing still helped one, there lived a "
-            "king whose daughters were all beautiful, but the youngest was so "
-            "beautiful that the sun itself, which has seen so much, was "
-            "astonished whenever it shone in her face.");
-    add_para(buf,
-            "Close"
-            "by the King's castle lay a great dark forest, and under an old "
-            "lime-tree in the forest was a well, and when the day was very warm, "
-            "the King's child went out into the forest and sat down by the side "
-            "of the cool fountain, and when she was dull she took a golden ball, "
-            "and threw it up on high and caught it, and this ball was her "
-            "favorite plaything.");
-    add_para(buf,
-            "Now it so happened that on"
-            "one occasion the princess's golden ball did not fall into the "
-            "little hand which she was holding up for it, but on to the ground "
-            "beyond, and rolled straight into the water.");
-    add_para(buf,
-            "The King's daughter followed it with her eyes, but it vanished, and "
-            "the well was deep, so deep that the bottom could not be seen.");
-    add_para(buf,
-            "On this she began to cry, and cried louder and louder, and "
-            "could not be comforted.");
-    add_para(buf,
-            "And as she thus lamented "
-            "some one said to her, ``What ails thee, King's daughter? Thou "
-            "weepest so that even a stone would show pity.''");
-    add_para(buf,
-            "She looked round to the side from whence the voice came, and saw a "
-            "frog stretching forth its thick, ugly head from the water.");
-    add_para(buf,
-            "``Ah! old water-splasher, is it thou?'' said she; ``I am "
-            "weeping for my golden ball, which has fallen into the well.''");
+    // Read command line args, and get input file.
+    FILE *file = cmdline(argc, argv);
+    if (!file)
+    {
+        return -1;
+    }
+
+    // Read from input file into our buffer
+    {
+        char *this_line = NULL;
+        size_t this_line_len = 0;
+
+        size_t len;
+        for(char *line; getline(&line, &len, file) != -1;)
+        {
+            size_t llen = strlen(line);
+
+            // If this is an empty line, clear the current line, and push it
+            // as a paragraph
+            if (llen == 1 && line[0] == '\n')
+            {
+                if (this_line)
+                {
+                    add_paragraph(buf, this_line, TRUE, this_line_len);
+                    free(this_line);
+                    this_line = NULL;
+                    this_line_len = 0;
+                }
+
+                continue;
+            }
+
+            if (!this_line)
+            {
+                this_line_len = llen;
+                this_line = malloc((this_line_len + 1) * sizeof(char));
+                strcpy(this_line, line);
+                this_line[strcspn(this_line, "\n")] = ' ';
+                this_line[this_line_len] = '\0';
+                this_line_len = strlen(this_line);
+            }
+            else
+            {
+                this_line_len += llen;
+                this_line = realloc(this_line, (this_line_len + 1) * sizeof(char));
+                strcat(this_line, line);
+                this_line[strcspn(this_line, "\n")] = ' ';
+                this_line[this_line_len] = '\0';
+                this_line_len = strlen(this_line);
+            }
+
+            //add_paragraph(buf, line, TRUE, strlen(line));
+        }
+
+        fclose(file);
+    }
 
     // Iterate over each line of our text and justify.
     for (line *l = buf->head; l; l = l->next)
@@ -237,6 +258,10 @@ static void add_paragraph(line_buf *buf, char *p, BOOL ind, size_t s)
 {
     if (!s) s = strlen(p);
     if (!s) return;
+    if (p[0] == '\n')
+    {
+        return;
+    }
 
     // Wrap lines of paragraph.  First line is INDENT_WIDTH shorter than the
     // rest.
@@ -273,4 +298,72 @@ static void add_paragraph(line_buf *buf, char *p, BOOL ind, size_t s)
     }
     l = line_add(buf, &p[0] + last, s - last);
     l->force_nojust = TRUE;
+
+    // Insert line breaks between paragraphs
+    // (TODO: make optional)
+    line_add(buf, " ", 1);
 }
+
+/*
+ * Read and interpret command-line arguments.
+ *
+ * @param argc  Argument count
+ * @param argv  Argument vector.
+ *
+ * @return file pointer to where input data is stored.  Is either a path that
+ *         user gave us, or a temporary file that we create with standard input
+ *         in it.
+ */
+static FILE *cmdline(int argc, char* argv[])
+{
+    FILE *fp = NULL;
+
+    int fileidx = -1;
+
+    int i = 1;
+    for (const char *arg = argv[1]; i < argc; arg = argv[++i])
+    {
+        // Help info.
+        if (strcmp(arg, "-h") == 0||
+            strcmp(arg, "--help") == 0)
+        {
+            printf("Help info (TODO)\n");
+            return 0;
+        }
+
+        // Assume non-arguments is a file path.
+        if (fileidx < 0)
+        {
+            fileidx = i;
+        }
+    }
+
+    if (fileidx < 0)
+    {
+        // If we didn't get a file index, read from standard input
+        // into a temporary file
+        fp = tmpfile();
+        if (!fp)
+        {
+            fprintf(stderr, "typeset: failed to read from stdin\n");
+            exit(-1);
+        }
+        size_t len;
+        for(char *line; getline(&line, &len, stdin) != -1; fprintf(fp, "%s", line));
+        fflush(fp);
+        rewind(fp);
+    }
+    else
+    {
+        // Else read from the file we got.
+        fp = fopen(argv[fileidx], "rb");
+        if (!fp)
+        {
+            fprintf(stderr, "typeset: %s: no such file\n", argv[fileidx]);
+            exit(-1);
+        }
+    }
+
+    return fp;
+}
+

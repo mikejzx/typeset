@@ -7,6 +7,9 @@ all: $(OUT)
 run: $(OUT)
 	@./$(OUT)
 
+test: $(OUT)
+	@./$(OUT) ./README.txt
+
 clean:
 	rm -f $(OUT)
 
