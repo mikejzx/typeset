@@ -8,7 +8,7 @@ run: $(OUT)
 	@./$(OUT)
 
 test: $(OUT)
-	@./$(OUT) ./README.txt
+	@./$(OUT) ./test.txt
 
 clean:
 	rm -f $(OUT)

@@ -99,6 +99,15 @@ int main(int argc, char *argv[])
             //add_paragraph(buf, line, TRUE, strlen(line));
         }
 
+        // Add last paragraph
+        if (this_line)
+        {
+            add_paragraph(buf, this_line, TRUE, this_line_len);
+            free(this_line);
+            this_line = NULL;
+            this_line_len = 0;
+        }
+
         fclose(file);
     }
 
