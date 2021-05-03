@@ -30,9 +30,13 @@ static  void  add_paragraph(line_buf*, char*, BOOL, size_t);
 #define add_para_ni(b, p) add_paragraph((b), (p), FALSE, strlen(p))
 #define add_para(b, p)    add_paragraph((b), (p), TRUE, strlen(p))
 static  FILE *cmdline(int, char**);
+static  BOOL is_punctuation(char);
 
 static const int COLUMNS = 80;
 static const int INDENT_WIDTH = 2;
+
+static BOOL do_hangpunct_right = FALSE,
+    do_hangpunct_left = TRUE;
 
 /*
  * Entry-point
@@ -147,16 +151,8 @@ int main(int argc, char *argv[])
         }
 
         // Hanging punctuation on right-side--we just add an additional space.
-        // TODO: clean this up, put in a function, etc.
         // TODO: left-side hanging punct
-        // TODO: make toggleable
-        if (line[line_length - 1] == ',' ||
-            line[line_length - 1] == '.' ||
-            line[line_length - 1] == ';' ||
-            line[line_length - 1] == ':' ||
-            line[line_length - 1] == '"' ||
-            line[line_length - 1] == '\'' ||
-            line[line_length - 1] == '-')
+        if (do_hangpunct_right && is_punctuation(line[line_length - 1]))
         {
             ++spaces_needed;
         }
@@ -376,3 +372,22 @@ static FILE *cmdline(int argc, char* argv[])
     return fp;
 }
 
+/*
+ * Check if a character is a punctuation mark suitable
+ * for hanging punctuation.
+ *
+ * @param x  Char to check
+ *
+ * @return TRUE if character is punctuation.
+ */
+static BOOL is_punctuation(char x)
+{
+    return
+        x == ',' ||
+        x == '.' ||
+        x == ';' ||
+        x == ':' ||
+        x == '"' ||
+        x == '\'' ||
+        x == '-';
+}
