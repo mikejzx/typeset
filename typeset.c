@@ -35,7 +35,8 @@ static  BOOL is_punctuation(char);
 static const int COLUMNS = 80;
 static const int INDENT_WIDTH = 2;
 
-static BOOL do_hangpunct_right = FALSE,
+static BOOL
+    do_hangpunct_right = TRUE,
     do_hangpunct_left = TRUE;
 
 /*
@@ -138,6 +139,26 @@ int main(int argc, char *argv[])
         {
             spaces_needed -= INDENT_WIDTH;
             for (j = 0; j < INDENT_WIDTH; printf(" "), ++j);
+        }
+
+        // On left-side hangpunct, we add a single space, if the line doesn't
+        // begin with a punctuation mark.  If it does, we say that we need one
+        // extra space.
+        if (do_hangpunct_left)
+        {
+            if (is_punctuation(line[0]))
+            {
+                printf("%c", line[0]);
+
+                // Move line address over, as we already printed first char.
+                ++line;
+                ++spaces_needed;
+                --line_length;
+            }
+            else
+            {
+                printf(" ");
+            }
         }
 
         // If we have no spaces, or we need too many spaces, just print the
