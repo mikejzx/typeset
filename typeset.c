@@ -161,6 +161,12 @@ int main(int argc, char *argv[])
             }
         }
 
+        // Hanging punctuation on right-side--we just add an additional space.
+        if (do_hangpunct_right && is_punctuation(line[line_length - 1]))
+        {
+            ++spaces_needed;
+        }
+
         // If we have no spaces, or we need too many spaces, just print the
         // line verbatim.
         if (!line_space_count ||
@@ -169,13 +175,6 @@ int main(int argc, char *argv[])
         {
             printf("%s\n", line);
             continue;
-        }
-
-        // Hanging punctuation on right-side--we just add an additional space.
-        // TODO: left-side hanging punct
-        if (do_hangpunct_right && is_punctuation(line[line_length - 1]))
-        {
-            ++spaces_needed;
         }
 
         // Number of spaces we can add to every existing space in the line.
